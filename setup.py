@@ -78,7 +78,9 @@ setup(
         ],
     },
     install_requires=[
-        'tabulate >= 0.8'
+        'tabulate >= 0.8',
+        'pygments >= 2.6',
+        'prompt_toolkit >= 3.0',
     ],
     tests_require=[
         'pytest',

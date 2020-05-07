@@ -4,12 +4,10 @@ import socket
 import sys
 import time
 
-import psclient.statements as stms
+import psclient.config as conf
 
 
 class _BaseClient:
-    error_marker = '#ERROR'
-
     def __init__(self, host='localhost', port=9042, username=None, password=None,
                  timeout=60, recv_buffer=4096):
         """
@@ -70,7 +68,7 @@ class _BaseClient:
                 raise ValueError
         except (IndexError, TypeError, ValueError) as exc:
             raise RuntimeError(
-                "{}: cannot determine server encoding: {}".format(self.error_marker, exc)
+                "{}: cannot determine server encoding: {}".format(conf.error_marker, exc)
             )
 
         encoding = encoding.upper()
@@ -100,7 +98,7 @@ class _BaseClient:
 
         :param res:
         """
-        if res.startswith(self.error_marker):
+        if res.startswith(conf.error_marker):
             raise RuntimeError(res)
 
 
@@ -166,7 +164,7 @@ class PSClient(_BaseClient):
         """
 
         """
-        output, _ = self.execute(stms.encoding_query)
+        output, _ = self.execute(conf.encoding_query)
         self._set_encoding(output)
         return self.server_encoding
 
@@ -202,7 +200,7 @@ class PSClient(_BaseClient):
                 if len(buf) >= 2 and buf[-2:].decode() == '\n\n':
                     break
         except socket.error as exc:
-            print("{}: {}".format(self.error_marker, str(exc)))
+            print("{}: {}".format(conf.error_marker, str(exc)))
             print("reconnecting...")
             self.connect()
 
@@ -265,7 +263,7 @@ class AIOPSClient(_BaseClient):
         """
 
         """
-        output, _ = await self.execute(stms.encoding_query)
+        output, _ = await self.execute(conf.encoding_query)
         self._set_encoding(output)
         return self.server_encoding
 

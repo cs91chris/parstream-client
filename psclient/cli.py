@@ -1,10 +1,20 @@
 import getopt
 import getpass
+import os
 import sys
 
+from prompt_toolkit import PromptSession
+from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
+from prompt_toolkit.completion import WordCompleter
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.styles import Style
+from prompt_toolkit.styles.pygments import style_from_pygments_cls
+from pygments.lexers.sql import PlPgsqlLexer
+from pygments.styles import get_style_by_name
 from tabulate import tabulate
 
-import psclient.statements as stms
+import psclient.config as conf
 from psclient import PSClient
 
 
@@ -15,14 +25,14 @@ def dump_output(result, time_info=None, timing=False):
     :param time_info:
     :param timing:
     """
-    if result.startswith('#ERROR'):
+    if result.startswith(conf.error_marker):
         print(result)
         return
 
     if sys.stdout.isatty() and result[0] == '#':
         rows = result[1:].split("\n")
         rows = [r.replace('"', '').split(";") for r in rows]
-        print(tabulate(rows, headers='firstrow', showindex='always', tablefmt='fancy_grid'))
+        print(tabulate(rows, **conf.tabulate_opts))
     else:
         print(result)
 
@@ -30,6 +40,8 @@ def dump_output(result, time_info=None, timing=False):
         time_info = time_info['time_info']
         exec_sec = round(time_info['end_exec'] - time_info['start'], 3)
         total_sec = round(time_info['end_out'] - time_info['start'], 3)
+
+        print()
         print("execution: {} sec".format(exec_sec))
         print("total:     {} sec".format(total_sec))
 
@@ -54,7 +66,7 @@ def cli_commands(client, cmd, *args):
             print(str(exc))
     elif cmd == "\\d":
         table = args[0] if len(args) > 0 else None
-        query = stms.query_tables_list if not table else stms.query_table_info.format(table)
+        query = conf.query_tables_list if not table else conf.query_table_info.format(table)
 
         try:
             dump_output(*client.execute(query))
@@ -66,15 +78,15 @@ def cli_commands(client, cmd, *args):
         print("{} invalid command".format(client.error_marker))
 
 
-def cli_prompt(prompt="> ", is_new=True, is_ignored=False):
+def cli_prompt(session, prompt="> ", is_new=True, is_ignored=False):
     """
 
+    :param session:
     :param prompt:
     :param is_new:
     :param is_ignored:
     :return:
     """
-    prompt = prompt
     if sys.stdin.isatty() and not is_new:
         prompt = "-> "
     elif not is_new and is_ignored:
@@ -83,11 +95,15 @@ def cli_prompt(prompt="> ", is_new=True, is_ignored=False):
     try:
         if sys.stdout.isatty():
             sys.stdout.flush()
-            line = input(prompt)
+            line = session.prompt(
+                prompt,
+                auto_suggest=AutoSuggestFromHistory(),
+                style=Style.from_dict(conf.prompt_style)
+            )
         else:
             sys.stdout.write(prompt)
             sys.stdout.flush()
-            line = input()
+            line = session.prompt()
     except EOFError:
         sys.exit(0)
 
@@ -155,11 +171,19 @@ def cli_loop(client, prompt=None):
     """
     statement = ""
     lines_ignored = False
+    hist_file = os.environ.get('HOME') or '.'
+
+    session = PromptSession(
+        history=FileHistory(os.path.join(hist_file, conf.history_file)),
+        lexer=PygmentsLexer(PlPgsqlLexer),
+        style=style_from_pygments_cls(get_style_by_name(conf.lexer_style_class)),
+        completer=WordCompleter(conf.sql_completer)
+    )
 
     client.connect()
 
     while True:
-        line = cli_prompt(prompt, len(statement) == 0, lines_ignored)
+        line = cli_prompt(session, prompt, len(statement) == 0, lines_ignored)
         stripped_line = line.strip()
         if not stripped_line or stripped_line.startswith("--"):
             lines_ignored = True
@@ -200,10 +224,14 @@ def cli():
         if kwargs['username']:
             kwargs['password'] = cli_password()
 
-        cli_loop(PSClient(**kwargs), prompt="[{}{}:{}] parstream => ".format(
-            kwargs['username'] + "@" if kwargs['username'] else "",
-            kwargs['host'],
-            kwargs['port']
-        ))
+        cli_loop(
+            PSClient(**kwargs), prompt=[(
+                "class:prompt", "[{}{}:{}] parstream => ".format(
+                    kwargs['username'] + "@" if kwargs['username'] else "",
+                    kwargs['host'],
+                    kwargs['port']
+                )
+            )]
+        )
     except KeyboardInterrupt:
         print('exited by ctrl+C')
