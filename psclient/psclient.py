@@ -9,7 +9,7 @@ import psclient.config as conf
 
 class _BaseClient:
     def __init__(self, host='localhost', port=9042, username=None, password=None,
-                 timeout=60, recv_buffer=4096):
+                 timeout=10, recv_buffer=4096):
         """
 
         :param host:
@@ -93,7 +93,8 @@ class _BaseClient:
 
         return stm
 
-    def _check_error(self, res):
+    @staticmethod
+    def _check_error(res):
         """
 
         :param res:
@@ -104,7 +105,7 @@ class _BaseClient:
 
 class PSClient(_BaseClient):
     def __init__(self, host='localhost', port=9042, username=None, password=None,
-                 timeout=60, recv_buffer=4096, max_reconnect=10):
+                 timeout=10, recv_buffer=4096, max_reconnect=10):
         """
 
         :param host:
@@ -128,11 +129,12 @@ class PSClient(_BaseClient):
 
         while reconnect:
             if reconnect_count > self.max_reconnect:
-                raise ConnectionError("reached maximum reconnect")
+                raise ConnectionError("reached maximum reconnect") from None
 
             try:
                 if self.conn is None:
                     self.conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.conn.settimeout(self.timeout)
                     self.conn.connect((self.host, self.port))
 
                 if self.username is not None:
@@ -174,35 +176,30 @@ class PSClient(_BaseClient):
         :param query:
         :return:
         """
+        query = self._normalize_statement(query)
+
         end_time = 0
         buf = bytes()
         recv_buffer = 1
         first_package = True
         start_time = time.time()
 
-        query = self._normalize_statement(query)
+        self.conn.sendall(query.encode())
 
-        try:
-            self.conn.sendall(query.encode())
+        while True:
+            package = self.conn.recv(recv_buffer)
+            if not package:
+                break
 
-            while True:
-                package = self.conn.recv(recv_buffer)
-                if not package:
-                    break
+            buf += package
 
-                buf += package
+            if first_package:
+                end_time = time.time()
+                first_package = False
+                recv_buffer = self.recv_buffer
 
-                if first_package:
-                    end_time = time.time()
-                    first_package = False
-                    recv_buffer = self.recv_buffer
-
-                if len(buf) >= 2 and buf[-2:].decode() == '\n\n':
-                    break
-        except socket.error as exc:
-            print("{}: {}".format(conf.error_marker, str(exc)))
-            print("reconnecting...")
-            self.connect()
+            if len(buf) >= 2 and buf[-2:].decode() == '\n\n':
+                break
 
         result = buf.decode(self.server_encoding, 'replace')
         result = result[0:-2]  # remove \n\n

@@ -1,6 +1,6 @@
 import getopt
-import getpass
 import os
+import socket
 import sys
 
 from prompt_toolkit import PromptSession
@@ -13,6 +13,7 @@ from prompt_toolkit.styles.pygments import style_from_pygments_cls
 from pygments.lexers.sql import PlPgsqlLexer
 from pygments.styles import get_style_by_name
 from tabulate import tabulate
+from prompt_toolkit import prompt as tkprompt
 
 import psclient.config as conf
 from psclient import PSClient
@@ -25,6 +26,8 @@ def dump_output(result, time_info=None, timing=False):
     :param time_info:
     :param timing:
     """
+    if not result:
+        return
     if result.startswith(conf.error_marker):
         print(result)
         return
@@ -46,6 +49,28 @@ def dump_output(result, time_info=None, timing=False):
         print("total:     {} sec".format(total_sec))
 
 
+def safe_execute(client, query):
+    """
+
+    :param client:
+    :param query:
+    :return:
+    """
+    try:
+        return client.execute(query)
+    except socket.error as exc:
+        print(str(exc), file=sys.stderr)
+        print("reconnecting...", file=sys.stderr)
+
+        try:
+            client.connect()
+        except ConnectionError as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
+
+        return None, None
+
+
 def cli_commands(client, cmd, *args):
     """
 
@@ -61,7 +86,7 @@ def cli_commands(client, cmd, *args):
             return
         try:
             with open(filename) as f:
-                dump_output(*client.execute(f.read()), timing=True)
+                dump_output(*safe_execute(client, f.read()), timing=True)
         except (OSError, RuntimeError) as exc:
             print(str(exc))
     elif cmd == "\\d":
@@ -69,7 +94,7 @@ def cli_commands(client, cmd, *args):
         query = conf.query_tables_list if not table else conf.query_table_info.format(table)
 
         try:
-            dump_output(*client.execute(query))
+            dump_output(*safe_execute(client, query))
         except RuntimeError as exc:
             print(exc)
     elif cmd == "\\q":
@@ -108,13 +133,6 @@ def cli_prompt(session, prompt="> ", is_new=True, is_ignored=False):
         sys.exit(0)
 
     return line
-
-
-def cli_password():
-    try:
-        return getpass.getpass().replace("'", "''")
-    except EOFError:
-        sys.exit(0)
 
 
 def cli_parse_args():
@@ -180,7 +198,14 @@ def cli_loop(client, prompt=None):
         completer=WordCompleter(conf.sql_completer)
     )
 
-    client.connect()
+    if client.username and not client.password:
+        client.password = tkprompt('Enter password: ', is_password=True)
+
+    try:
+        client.connect()
+    except ConnectionError as exc:
+        print(str(exc), file=sys.stderr)
+        sys.exit(1)
 
     while True:
         line = cli_prompt(session, prompt, len(statement) == 0, lines_ignored)
@@ -198,20 +223,12 @@ def cli_loop(client, prompt=None):
         statement = " ".join((statement, line)).lstrip()
 
         if statement.rstrip().endswith(";"):
-            if statement.lstrip().lower().startswith("login"):
-                parts = statement.split()
-                if len(parts) == 2:
-                    client.password = cli_password()
-                    statement = statement.rstrip("; ")
-                    statement += ' ' + client.password
-
-            statement = statement.rstrip("; ")
             if statement:
                 if not sys.stdin.isatty():
                     print()
 
                 try:
-                    dump_output(*client.execute(statement), timing=True)
+                    dump_output(*safe_execute(client, statement), timing=True)
                 except RuntimeError as exc:
                     print(str(exc))
 
@@ -221,8 +238,6 @@ def cli_loop(client, prompt=None):
 def cli():
     try:
         kwargs = cli_parse_args()
-        if kwargs['username']:
-            kwargs['password'] = cli_password()
 
         cli_loop(
             PSClient(**kwargs), prompt=[(
