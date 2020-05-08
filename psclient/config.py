@@ -1,3 +1,5 @@
+from enum import Enum
+
 error_marker = '#ERROR'
 
 history_file = '.psclient_history'
@@ -48,3 +50,8 @@ tabulate_opts = {
     'showindex': 'always',
     'tablefmt': 'fancy_grid'
 }
+
+
+class ExitCodes(Enum):
+    success = 0
+    connection_error = 1

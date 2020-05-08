@@ -1,9 +1,8 @@
 import argparse
 import os
-import socket
 import sys
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, prompt as tkprompt
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
@@ -12,63 +11,10 @@ from prompt_toolkit.styles import Style
 from prompt_toolkit.styles.pygments import style_from_pygments_cls
 from pygments.lexers.sql import PlPgsqlLexer
 from pygments.styles import get_style_by_name
-from tabulate import tabulate
-from prompt_toolkit import prompt as tkprompt
 
 import psclient.config as conf
+import psclient.utils as utils
 from psclient import PSClient
-
-
-def dump_output(result, time_info=None, timing=False):
-    """
-
-    :param result:
-    :param time_info:
-    :param timing:
-    """
-    if not result:
-        return
-    if result.startswith(conf.error_marker):
-        print(result)
-        return
-
-    if sys.stdout.isatty() and result[0] == '#':
-        rows = result[1:].split("\n")
-        rows = [r.replace('"', '').split(";") for r in rows]
-        print(tabulate(rows, **conf.tabulate_opts))
-    else:
-        print(result)
-
-    if timing:
-        t = time_info['time_info']
-        exec_sec = round(t['end_exec'] - t['start'], 4)
-        total_sec = round(t['end_out'] - t['start'], 4)
-
-        print()
-        print("execution: {} sec".format(exec_sec))
-        print("total:     {} sec".format(total_sec))
-
-
-def safe_execute(client, query):
-    """
-
-    :param client:
-    :param query:
-    :return:
-    """
-    try:
-        return client.execute(query)
-    except socket.error as exc:
-        print(str(exc), file=sys.stderr)
-        print("reconnecting...", file=sys.stderr)
-
-        try:
-            client.connect()
-        except ConnectionError as exc:
-            print(str(exc), file=sys.stderr)
-            sys.exit(1)
-
-        return None, None
 
 
 def cli_commands(client, cmd, *args):
@@ -82,25 +28,25 @@ def cli_commands(client, cmd, *args):
         try:
             filename = args[0]
         except IndexError:
-            print("{} missing filename".format(client.error_marker))
+            utils.eprint("{} missing filename".format(client.error_marker))
             return
         try:
             with open(filename) as f:
-                dump_output(*safe_execute(client, f.read()), timing=True)
+                utils.dump_output(*utils.safe_execute(client, f.read()), timing=True)
         except (OSError, RuntimeError) as exc:
-            print(str(exc))
+            utils.eprint(str(exc))
     elif cmd == "\\d":
         table = args[0] if len(args) > 0 else None
         query = conf.query_tables_list if not table else conf.query_table_info.format(table)
 
         try:
-            dump_output(*safe_execute(client, query))
+            utils.dump_output(*utils.safe_execute(client, query))
         except RuntimeError as exc:
-            print(exc)
+            utils.eprint(str(exc))
     elif cmd == "\\q":
-        sys.exit(0)
+        sys.exit(conf.ExitCodes.success)
     else:
-        print("{} invalid command".format(client.error_marker))
+        utils.eprint("{} invalid command".format(client.error_marker))
 
 
 def cli_prompt(session, prompt="> ", is_new=True, is_ignored=False):
@@ -130,7 +76,7 @@ def cli_prompt(session, prompt="> ", is_new=True, is_ignored=False):
             sys.stdout.flush()
             line = session.prompt()
     except EOFError:
-        sys.exit(0)
+        sys.exit(conf.ExitCodes.success)
 
     return line
 
@@ -158,8 +104,8 @@ def cli_loop(client, prompt=None):
     try:
         client.connect()
     except ConnectionError as exc:
-        print(str(exc), file=sys.stderr)
-        sys.exit(1)
+        utils.eprint(str(exc))
+        sys.exit(conf.ExitCodes.connection_error)
 
     while True:
         line = cli_prompt(session, prompt, len(statement) == 0, lines_ignored)
@@ -182,9 +128,9 @@ def cli_loop(client, prompt=None):
                     print()
 
                 try:
-                    dump_output(*safe_execute(client, statement), timing=True)
+                    utils.dump_output(*utils.safe_execute(client, statement), timing=True)
                 except RuntimeError as exc:
-                    print(str(exc))
+                    utils.eprint(str(exc))
 
             statement = ""
 
