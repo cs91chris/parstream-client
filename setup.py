@@ -60,7 +60,7 @@ class PyTest(test):
 
 
 setup(
-    name='psclient',
+    name='pscli',
     url=grep(VERSION_FILE, '__url__'),
     license=grep(VERSION_FILE, '__license__'),
     version=grep(VERSION_FILE, '__version__'),
