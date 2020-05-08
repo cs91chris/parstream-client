@@ -1,4 +1,4 @@
-import getopt
+import argparse
 import os
 import socket
 import sys
@@ -40,9 +40,9 @@ def dump_output(result, time_info=None, timing=False):
         print(result)
 
     if timing:
-        time_info = time_info['time_info']
-        exec_sec = round(time_info['end_exec'] - time_info['start'], 3)
-        total_sec = round(time_info['end_out'] - time_info['start'], 3)
+        t = time_info['time_info']
+        exec_sec = round(t['end_exec'] - t['start'], 4)
+        total_sec = round(t['end_out'] - t['start'], 4)
 
         print()
         print("execution: {} sec".format(exec_sec))
@@ -135,52 +135,6 @@ def cli_prompt(session, prompt="> ", is_new=True, is_ignored=False):
     return line
 
 
-def cli_parse_args():
-    """
-
-    :return:
-    """
-    def print_usage():
-        print(
-            "Usage: "
-            "[-H | --host= <host>] "
-            "[-p | --port= <port>] "
-            "[-U | --username= <username>] "
-        )
-
-    params = dict()
-    params['username'] = None
-    params['password'] = None
-    params['port'] = 9042
-    params['host'] = "localhost"
-    params['timeout'] = 60
-
-    try:
-        opts, _ = getopt.getopt(
-            sys.argv[1:], 'hH:p:U:',
-            ["help", "host=", "port=", "username="]
-        )
-    except getopt.GetoptError:
-        print_usage()
-        sys.exit(1)
-
-    for o, a in opts:
-        if o in ("-H", "--host"):
-            params['host'] = a
-        elif o in ("-p", "--port"):
-            params['port'] = int(a)
-        elif o in ("-U", "--username"):
-            params['username'] = a
-        elif o in ("-h", "--help"):
-            print_usage()
-            sys.exit(0)
-        else:
-            print_usage()
-            sys.exit(1)
-
-    return params
-
-
 def cli_loop(client, prompt=None):
     """
 
@@ -237,14 +191,27 @@ def cli_loop(client, prompt=None):
 
 def cli():
     try:
-        kwargs = cli_parse_args()
+        params = dict()
+        params['password'] = None
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("-H", "--host", default='localhost', help="parstream host")
+        parser.add_argument("-p", "--port", default=9011, type=int, help="parstream port")
+        parser.add_argument("-U", "--user", help="username")
+        parser.add_argument("-t", "--timeout", type=int, help="connection timeout in sec")
+        args = parser.parse_args()
+
+        params['timeout'] = args.timeout
+        params['port'] = args.port
+        params['username'] = args.user
+        params['host'] = args.host
 
         cli_loop(
-            PSClient(**kwargs), prompt=[(
+            PSClient(**params), prompt=[(
                 "class:prompt", "[{}{}:{}] parstream => ".format(
-                    kwargs['username'] + "@" if kwargs['username'] else "",
-                    kwargs['host'],
-                    kwargs['port']
+                    params['username'] + "@" if params['username'] else "",
+                    params['host'],
+                    params['port']
                 )
             )]
         )
