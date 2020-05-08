@@ -105,7 +105,7 @@ class _BaseClient:
 
 class PSClient(_BaseClient):
     def __init__(self, host='localhost', port=9042, username=None, password=None,
-                 timeout=10, recv_buffer=4096, max_reconnect=10):
+                 timeout=5, recv_buffer=4096, max_reconnect=5):
         """
 
         :param host:
@@ -129,7 +129,9 @@ class PSClient(_BaseClient):
 
         while reconnect:
             if reconnect_count > self.max_reconnect:
-                raise ConnectionError("reached maximum reconnect") from None
+                raise ConnectionError(
+                    "Connection Error: reached maximum reconnect"
+                ) from None
 
             try:
                 if self.conn is None:
@@ -145,7 +147,7 @@ class PSClient(_BaseClient):
             except socket.error:
                 self.disconnect()
                 reconnect_count += 1
-                time.sleep(1)
+                time.sleep(0.1)
 
     def disconnect(self):
         """

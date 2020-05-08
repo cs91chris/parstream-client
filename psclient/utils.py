@@ -17,9 +17,8 @@ def parse_options():
 
     parser.add_argument("-H", "--host", default='localhost', help="parstream host")
     parser.add_argument("-p", "--port", default=9011, type=int, help="parstream port")
-    parser.add_argument("-U", "--user", help="username")
+    parser.add_argument("-u", "--user", help="username")
     parser.add_argument("-t", "--timeout", type=int, help="connection timeout in sec")
-    parser.add_argument("-T", "--timing", type=int, help="enable query timing")
     parser.add_argument("-v", "--version", action='store_true', help="enable query timing")
 
     return parser.parse_args()

@@ -114,7 +114,8 @@ def cli():
         params['timeout'] = args.timeout
 
         cli_loop(
-            PSClient(**params), prompt=[(
+            PSClient(**params),
+            prompt=[(
                 "class:prompt", conf.ps1.format(
                     user=params['username'] + "@" if params['username'] else "",
                     host=params['host'],
