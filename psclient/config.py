@@ -6,6 +6,8 @@ history_file = '.psclient_history'
 
 lexer_style_class = 'vim'
 
+set_format = "SET outputformat = {}"
+
 query_version = "select parstream_version, build_datetime, source_revision from ps_info_version;"
 
 query_configuration_list = "SELECT * FROM ps_info_configuration;"
@@ -48,7 +50,7 @@ sql_completer = [
 ]
 
 cli_completer = [
-    '\\tables', '\\help', '\\version', '\\settings', '\\file', '\\quit',
+    '\\tables', '\\help', '\\version', '\\settings', '\\file', '\\quit', '\\format',
 ]
 
 prompt_style = {

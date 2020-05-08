@@ -83,10 +83,28 @@ def cmd_settings(client, *args):
         utils.eprint(str(exc))
 
 
+def cmd_format(client, fmt=None):
+    """
+
+    :param client:
+    :param fmt:
+    """
+    if not fmt:
+        utils.eprint("missing argument use one of: ASCII, JSON, XML")
+        return
+
+    try:
+        resp, _ = utils.safe_execute(client, conf.set_format.format(fmt))
+        utils.eprint(resp)
+    except RuntimeError as exc:
+        utils.eprint(str(exc))
+
+
 CLI_COMMANDS = dict(
     tables=cmd_tables,
     version=cmd_version,
     settings=cmd_settings,
     quit=cmd_quit,
-    file=cmd_file
+    file=cmd_file,
+    format=cmd_format
 )
