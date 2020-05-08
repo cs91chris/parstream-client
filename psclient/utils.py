@@ -43,6 +43,14 @@ def eprint(*args):
     print(*args, file=sys.stderr)
 
 
+def print_welcome():
+    """
+
+    """
+    eprint("Unofficial Cisco Parstream cli")
+    eprint("Type \\ for a list of cli commands\n")
+
+
 def dump_output(result, time_info=None, timing=False):
     """
 

@@ -14,38 +14,7 @@ from pygments.styles import get_style_by_name
 import psclient.config as conf
 import psclient.utils as utils
 from psclient import PSClient
-
-
-def cli_commands(client, cmd, *args):
-    """
-
-    :param client:
-    :param cmd:
-    :param args:
-    """
-    if cmd == "\\i":
-        try:
-            filename = args[0]
-        except IndexError:
-            utils.eprint("{} missing filename".format(client.error_marker))
-            return
-        try:
-            with open(filename) as f:
-                utils.dump_output(*utils.safe_execute(client, f.read()), timing=True)
-        except (OSError, RuntimeError) as exc:
-            utils.eprint(str(exc))
-    elif cmd == "\\d":
-        table = args[0] if len(args) > 0 else None
-        query = conf.query_tables_list if not table else conf.query_table_info.format(table)
-
-        try:
-            utils.dump_output(*utils.safe_execute(client, query))
-        except RuntimeError as exc:
-            utils.eprint(str(exc))
-    elif cmd == "\\q":
-        sys.exit(conf.ExitCodes.success.value)
-    else:
-        utils.eprint("{} invalid command".format(client.error_marker))
+from psclient.commands import command_factory
 
 
 def cli_prompt(session, prompt="> ", is_new=True):
@@ -85,10 +54,12 @@ def cli_loop(client, prompt=None):
     hist_file = os.environ.get('HOME') or '.'
 
     if sys.stdout.isatty():
+        utils.print_welcome()
+
         session = PromptSession(
             history=FileHistory(os.path.join(hist_file, conf.history_file)),
             style=style_from_pygments_cls(get_style_by_name(conf.lexer_style_class)),
-            completer=WordCompleter(conf.sql_completer),
+            completer=WordCompleter(conf.sql_completer + conf.cli_completer),
             lexer=PygmentsLexer(PlPgsqlLexer),
         )
     else:
@@ -108,7 +79,10 @@ def cli_loop(client, prompt=None):
 
         if line and not line.startswith("--"):
             if line.startswith("\\"):
-                cli_commands(client, *line.split())
+                line = line.split()
+                cmd = command_factory(line[0][1:])
+                if callable(cmd):
+                    cmd(client, *line[1:])
             else:
                 statement = " ".join((statement, line)).lstrip()
                 if statement.rstrip().endswith(";"):

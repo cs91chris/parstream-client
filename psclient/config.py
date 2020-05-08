@@ -6,6 +6,12 @@ history_file = '.psclient_history'
 
 lexer_style_class = 'vim'
 
+query_version = "select parstream_version, build_datetime, source_revision from ps_info_version;"
+
+query_configuration_list = "SELECT * FROM ps_info_configuration;"
+
+query_configuration_info = "SELECT * FROM ps_info_configuration WHERE KEY in ({});"
+
 encoding_query = "SELECT VALUE FROM ps_info_configuration WHERE KEY = 'encoding';"
 
 query_tables_list = "SELECT DISTINCT table_name" \
@@ -38,7 +44,11 @@ sql_completer = [
     'rename', 'replace', 'restrict', 'right', 'rollback', 'row',
     'savepoint', 'select', 'set', 'table', 'temp', 'temporary', 'then',
     'to', 'transaction', 'trigger', 'union', 'unique', 'update', 'using',
-    'vacuum', 'values', 'view', 'virtual', 'when', 'where', 'with', 'without'
+    'vacuum', 'values', 'view', 'virtual', 'when', 'where', 'with', 'without',
+]
+
+cli_completer = [
+    '\\tables', '\\help', '\\version', '\\settings', '\\file', '\\quit',
 ]
 
 prompt_style = {
