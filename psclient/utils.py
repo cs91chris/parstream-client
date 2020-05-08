@@ -1,9 +1,38 @@
+import argparse
 import socket
 import sys
 
 from tabulate import tabulate
 
 import psclient.config as conf
+from psclient.version import *
+
+
+def parse_options():
+    """
+
+    :return:
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-H", "--host", default='localhost', help="parstream host")
+    parser.add_argument("-p", "--port", default=9011, type=int, help="parstream port")
+    parser.add_argument("-U", "--user", help="username")
+    parser.add_argument("-t", "--timeout", type=int, help="connection timeout in sec")
+    parser.add_argument("-T", "--timing", type=int, help="enable query timing")
+    parser.add_argument("-v", "--version", action='store_true', help="enable query timing")
+
+    return parser.parse_args()
+
+
+def dump_version_info():
+    """
+
+    """
+    print("version:", __version__)
+    print("author:", __author__)
+    print("license:", __license__)
+    print("url:", __url__)
 
 
 def eprint(*args):

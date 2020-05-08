@@ -61,8 +61,8 @@ class PyTest(test):
 
 setup(
     name='psclient',
-    url='https://github.com/cs91chris/parstream-client',
-    license='MIT',
+    url=grep(VERSION_FILE, '__url__'),
+    license=grep(VERSION_FILE, '__license__'),
     version=grep(VERSION_FILE, '__version__'),
     author=grep(VERSION_FILE, '__author_name__'),
     author_email=grep(VERSION_FILE, '__author_email__'),

@@ -42,8 +42,11 @@ sql_completer = [
 ]
 
 prompt_style = {
-    'prompt': '#bfbfbf'
+    'prompt': 'ansiblue'
 }
+
+ps1 = "[{user}{host}:{port}] parstream => "
+ps2 = " ... -> "
 
 tabulate_opts = {
     'headers': 'firstrow',

@@ -1,4 +1,3 @@
-import argparse
 import os
 import sys
 
@@ -44,24 +43,21 @@ def cli_commands(client, cmd, *args):
         except RuntimeError as exc:
             utils.eprint(str(exc))
     elif cmd == "\\q":
-        sys.exit(conf.ExitCodes.success)
+        sys.exit(conf.ExitCodes.success.value)
     else:
         utils.eprint("{} invalid command".format(client.error_marker))
 
 
-def cli_prompt(session, prompt="> ", is_new=True, is_ignored=False):
+def cli_prompt(session, prompt="> ", is_new=True):
     """
 
     :param session:
     :param prompt:
     :param is_new:
-    :param is_ignored:
     :return:
     """
     if sys.stdin.isatty() and not is_new:
-        prompt = "-> "
-    elif not is_new and is_ignored:
-        prompt = ". "
+        prompt = conf.ps2
 
     try:
         if sys.stdout.isatty():
@@ -72,11 +68,9 @@ def cli_prompt(session, prompt="> ", is_new=True, is_ignored=False):
                 style=Style.from_dict(conf.prompt_style)
             )
         else:
-            sys.stdout.write(prompt)
-            sys.stdout.flush()
-            line = session.prompt()
+            line = input()
     except EOFError:
-        sys.exit(conf.ExitCodes.success)
+        sys.exit(conf.ExitCodes.success.value)
 
     return line
 
@@ -88,15 +82,17 @@ def cli_loop(client, prompt=None):
     :param prompt:
     """
     statement = ""
-    lines_ignored = False
     hist_file = os.environ.get('HOME') or '.'
 
-    session = PromptSession(
-        history=FileHistory(os.path.join(hist_file, conf.history_file)),
-        lexer=PygmentsLexer(PlPgsqlLexer),
-        style=style_from_pygments_cls(get_style_by_name(conf.lexer_style_class)),
-        completer=WordCompleter(conf.sql_completer)
-    )
+    if sys.stdout.isatty():
+        session = PromptSession(
+            history=FileHistory(os.path.join(hist_file, conf.history_file)),
+            style=style_from_pygments_cls(get_style_by_name(conf.lexer_style_class)),
+            completer=WordCompleter(conf.sql_completer),
+            lexer=PygmentsLexer(PlPgsqlLexer),
+        )
+    else:
+        session = None
 
     if client.username and not client.password:
         client.password = tkprompt('Enter password: ', is_password=True)
@@ -105,59 +101,50 @@ def cli_loop(client, prompt=None):
         client.connect()
     except ConnectionError as exc:
         utils.eprint(str(exc))
-        sys.exit(conf.ExitCodes.connection_error)
+        sys.exit(conf.ExitCodes.connection_error.value)
 
     while True:
-        line = cli_prompt(session, prompt, len(statement) == 0, lines_ignored)
-        stripped_line = line.strip()
-        if not stripped_line or stripped_line.startswith("--"):
-            lines_ignored = True
-            continue
+        line = cli_prompt(session, prompt, len(statement) == 0).strip()
 
-        lines_ignored = False
+        if line and not line.startswith("--"):
+            if line.startswith("\\"):
+                cli_commands(client, *line.split())
+            else:
+                statement = " ".join((statement, line)).lstrip()
+                if statement.rstrip().endswith(";"):
+                    if not sys.stdin.isatty():
+                        print()
 
-        if sys.stdin.isatty() and line.startswith("\\"):
-            cli_commands(client, *line.split())
-            continue
+                    try:
+                        resp = utils.safe_execute(client, statement)
+                        utils.dump_output(*resp, timing=True)
+                    except RuntimeError as exc:
+                        utils.eprint(str(exc))
 
-        statement = " ".join((statement, line)).lstrip()
-
-        if statement.rstrip().endswith(";"):
-            if statement:
-                if not sys.stdin.isatty():
-                    print()
-
-                try:
-                    utils.dump_output(*utils.safe_execute(client, statement), timing=True)
-                except RuntimeError as exc:
-                    utils.eprint(str(exc))
-
-            statement = ""
+                    statement = ""
 
 
 def cli():
     try:
         params = dict()
-        params['password'] = None
+        args = utils.parse_options()
 
-        parser = argparse.ArgumentParser()
-        parser.add_argument("-H", "--host", default='localhost', help="parstream host")
-        parser.add_argument("-p", "--port", default=9011, type=int, help="parstream port")
-        parser.add_argument("-U", "--user", help="username")
-        parser.add_argument("-t", "--timeout", type=int, help="connection timeout in sec")
-        args = parser.parse_args()
+        if args.version:
+            utils.dump_version_info()
+            sys.exit(conf.ExitCodes.success.value)
 
-        params['timeout'] = args.timeout
+        params['host'] = args.host
         params['port'] = args.port
         params['username'] = args.user
-        params['host'] = args.host
+        params['password'] = None
+        params['timeout'] = args.timeout
 
         cli_loop(
             PSClient(**params), prompt=[(
-                "class:prompt", "[{}{}:{}] parstream => ".format(
-                    params['username'] + "@" if params['username'] else "",
-                    params['host'],
-                    params['port']
+                "class:prompt", conf.ps1.format(
+                    user=params['username'] + "@" if params['username'] else "",
+                    host=params['host'],
+                    port=params['port']
                 )
             )]
         )
