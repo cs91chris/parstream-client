@@ -13,16 +13,26 @@ query_version = "SELECT parstream_version, build_datetime, source_revision FROM 
 query_configuration_list = "SELECT * FROM ps_info_configuration;"
 query_configuration_info = "SELECT * FROM ps_info_configuration WHERE KEY in ({});"
 encoding_query = "SELECT VALUE FROM ps_info_configuration WHERE KEY = 'encoding';"
-query_tables_list = "SELECT table_name,import_directory_pattern,import_file_pattern, distribution_column, distribution_redundancy FROM ps_info_table ORDER BY table_name;"
+
+query_tables_list = "SELECT table_name" \
+                    ",import_directory_pattern" \
+                    ",import_file_pattern" \
+                    ",distribution_column" \
+                    ",distribution_redundancy" \
+                    " FROM ps_info_table" \
+                    " ORDER BY table_name;"
+
 query_cluster_info = "SELECT name,type,host,port,leader,follower,active,online," \
                      "node_status,import_status,merge_status" \
                      " FROM ps_info_cluster_node;"
+
 query_disc_usage_total = "SELECT count(file_name) as files" \
                          ",sum(size_byte) / 1048576 AS MB" \
                          ",sum(size_byte) / 1073741824 AS GB" \
                          ",sum(size_byte) / 1099511627776 AS TB" \
                          " FROM ps_info_disc" \
                          " ORDER BY MB;"
+
 query_disc_usage_partitions = "SELECT path" \
                         ",type" \
                         ",status" \
@@ -31,13 +41,17 @@ query_disc_usage_partitions = "SELECT path" \
                         ",sum(size_byte) / 1073741824 AS GB" \
                         " FROM ps_info_disc" \
                         " WHERE path LIKE '%{}%'" \
-                        " GROUP BY path, type, status;"
+                        " GROUP BY path, type, status" \
+                        " ORDER BY KB;"
+
 query_partitions_info = "SELECT relative_path AS directory" \
                         ",partition_condition" \
                         ",num_records" \
                         ",status" \
                         " FROM ps_info_partition" \
-                        " WHERE table_name = '{}';"
+                        " WHERE table_name = '{}'" \
+                        " ORDER BY relative_path;"
+
 query_table_info = "SELECT column_name" \
                     ",sql_type" \
                     ",singularity" \
@@ -47,7 +61,8 @@ query_table_info = "SELECT column_name" \
                     ",default_value" \
                     " FROM ps_info_column AS c" \
                     " JOIN ps_info_type AS t ON c.value_type_oid = t.oid" \
-                    " WHERE table_name = '{}';"
+                    " WHERE table_name = '{}'" \
+                   " ORDER BY column_name;"
 
 sql_completer = [
     'abort', 'action', 'add', 'after', 'all', 'alter', 'analyze', 'and',
