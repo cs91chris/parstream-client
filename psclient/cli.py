@@ -37,6 +37,7 @@ def cli_prompt(session, prompt="> ", is_new=True):
                 style=Style.from_dict(conf.prompt_style)
             )
         else:
+            sys.stdout.flush()
             line = input()
     except EOFError:
         sys.exit(conf.ExitCodes.success.value)

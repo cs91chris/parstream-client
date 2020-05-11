@@ -19,7 +19,7 @@ def parse_options():
     parser.add_argument("-p", "--port", default=9011, type=int, help="parstream port")
     parser.add_argument("-u", "--user", help="username")
     parser.add_argument("-t", "--timeout", type=int, help="connection timeout in sec")
-    parser.add_argument("-v", "--version", action='store_true', help="enable query timing")
+    parser.add_argument("-v", "--version", action='store_true', help="show client version info")
 
     return parser.parse_args()
 
@@ -90,14 +90,14 @@ def safe_execute(client, query):
     try:
         return client.execute(query)
     except socket.error as exc:
-        print(str(exc), file=sys.stderr)
-        print("reconnecting...", file=sys.stderr)
+        eprint(str(exc))
+        eprint("reconnecting...")
 
         try:
             client.connect()
-            print("successfully connected", file=sys.stderr)
+            eprint("successfully connected")
         except ConnectionError as exc:
-            print(str(exc), file=sys.stderr)
+            eprint(str(exc))
             sys.exit(1)
 
         return None, None

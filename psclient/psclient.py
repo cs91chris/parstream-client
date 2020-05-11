@@ -88,6 +88,9 @@ class _BaseClient:
 
         :param stm:
         """
+        stm = stm.replace('\n', ' ')
+        stm = stm.replace('\t', ' ')
+
         if not stm.endswith("\n"):
             stm += "\n"
 
