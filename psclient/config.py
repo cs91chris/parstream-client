@@ -13,38 +13,38 @@ query_version = "SELECT parstream_version, build_datetime, source_revision FROM 
 query_configuration_list = "SELECT * FROM ps_info_configuration;"
 query_configuration_info = "SELECT * FROM ps_info_configuration WHERE KEY in ({});"
 encoding_query = "SELECT VALUE FROM ps_info_configuration WHERE KEY = 'encoding';"
-query_tables_list = "SELECT DISTINCT table_name FROM ps_info_column ORDER BY table_name;"
+query_tables_list = "SELECT table_name,import_directory_pattern,import_file_pattern, distribution_column, distribution_redundancy FROM ps_info_table ORDER BY table_name;"
+query_cluster_info = "SELECT name,type,host,port,leader,follower,active,online," \
+                     "node_status,import_status,merge_status" \
+                     " FROM ps_info_cluster_node;"
 query_disc_usage_total = "SELECT count(file_name) as files" \
-                         ",((sum(size_byte) / 1000) / 1000) / 1000 AS GB" \
-                         ",(((sum(size_byte) / 1000) / 1000) / 1000) / 10000 AS TB" \
-                         "FROM ps_info_disc;"
-query_disc_usage_list = "SELECT path" \
-                        ",type" \
-                        ",status" \
-                        ",(sum(size_byte) / 1000) / 1000 AS MB" \
-                        ",((sum(size_byte) / 1000) / 1000) / 1000 AS GB" \
-                        "FROM ps_info_disc" \
-                        "GROUP BY path, type, status;"
+                         ",sum(size_byte) / 1048576 AS MB" \
+                         ",sum(size_byte) / 1073741824 AS GB" \
+                         ",sum(size_byte) / 1099511627776 AS TB" \
+                         " FROM ps_info_disc" \
+                         " ORDER BY MB;"
 query_disc_usage_partitions = "SELECT path" \
                         ",type" \
                         ",status" \
-                        ",(sum(size_byte) / 1000) / 1000 AS MB" \
-                        ",((sum(size_byte) / 1000) / 1000) / 1000 AS GB" \
-                        "FROM ps_info_disc" \
-                        "WHERE path IN ({})" \
-                        "GROUP BY path, type, status;"
-query_partitions_info = "SELECT table_name" \
-                        ",base_directory || relative_path AS directory" \
+                        ",sum(size_byte) / 1024 AS KB" \
+                        ",sum(size_byte) / 1048576 AS MB" \
+                        ",sum(size_byte) / 1073741824 AS GB" \
+                        " FROM ps_info_disc" \
+                        " WHERE path LIKE '%{}%'" \
+                        " GROUP BY path, type, status;"
+query_partitions_info = "SELECT relative_path AS directory" \
                         ",partition_condition" \
                         ",num_records" \
                         ",status" \
-                        ",access_time" \
-                        "FROM ps_info_partition" \
-                        "WHERE table_name = '{}';"
+                        " FROM ps_info_partition" \
+                        " WHERE table_name = '{}';"
 query_table_info = "SELECT column_name" \
-                    ",column_type" \
-                    ",type_name" \
-                    ",value_singularity" \
+                    ",sql_type" \
+                    ",singularity" \
+                    ",has_unique_constraint AS is_unique" \
+                    ",has_not_null_constraint AS not_null" \
+                    ",is_primary_key" \
+                    ",default_value" \
                     " FROM ps_info_column AS c" \
                     " JOIN ps_info_type AS t ON c.value_type_oid = t.oid" \
                     " WHERE table_name = '{}';"
@@ -73,7 +73,11 @@ sql_completer = [
 cli_completer = [
     '\\tables', '\\help', '\\version', '\\settings',
     '\\file', '\\quit', '\\format', '\\process',
-    '\\users', '\\partitions', '\\disc'
+    '\\users', '\\partitions', '\\disc', '\\cluster'
+
+    'tables', 'help', 'version', 'settings',
+    'file', 'quit', 'format', 'process',
+    'users', 'partitions', 'disc', 'cluster'
 ]
 
 prompt_style = {
@@ -85,8 +89,7 @@ ps2 = " ... -> "
 
 tabulate_opts = {
     'headers': 'firstrow',
-    'showindex': 'always',
-    'tablefmt': 'fancy_grid'
+    'tablefmt': 'presto'
 }
 
 

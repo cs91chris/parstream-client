@@ -1,5 +1,8 @@
 import sys
 
+from prompt_toolkit import HTML, print_formatted_text as fprint
+from prompt_toolkit.styles import Style
+
 import psclient.config as conf
 import psclient.utils as utils
 
@@ -35,7 +38,7 @@ def cmd_file(client, filename=None):
     :param filename:
     """
     if not filename:
-        utils.eprint("{} missing filename".format(client.error_marker))
+        utils.eprint("{} missing filename".format(conf.error_marker))
         return
 
     with open(filename) as f:
@@ -50,7 +53,11 @@ def cmd_tables(client, table=None, *args):
     :param table:
     :param args:
     """
-    query = conf.query_tables_list if not table else conf.query_table_info.format(table)
+    if table:
+        query = conf.query_table_info.format(table)
+    else:
+        query = conf.query_tables_list
+
     dump_statement(client, query)
 
 
@@ -126,6 +133,16 @@ def cmd_users(client, *args):
     dump_statement(client, conf.query_user_list)
 
 
+# noinspection PyUnusedLocal
+def cmd_cluster(client, *args):
+    """
+
+    :param client:
+    :param args:
+    """
+    dump_statement(client, conf.query_cluster_info)
+
+
 def cmd_partitions(client, table=None):
     """
 
@@ -133,27 +150,51 @@ def cmd_partitions(client, table=None):
     :param table:
     """
     if not table:
-        utils.eprint("{} table name required".format(client.error_marker))
+        utils.eprint("{} table name required".format(conf.error_marker))
         return
 
     dump_statement(client, conf.query_partitions_info.format(table))
 
 
-def cmd_disc_usage(client, *partitions):
+def cmd_disc_usage(client, partition=None):
     """
 
     :param client:
-    :param partitions:
+    :param partition:
     """
-    if not partitions:
-        query = conf.query_disc_usage_list
-    elif partitions[0] == 'total':
+    if not partition:
         query = conf.query_disc_usage_total
     else:
-        partitions = "'{}'".format("','".join(partitions))
-        query = conf.query_disc_usage_partitions.format(partitions)
+        query = conf.query_disc_usage_partitions.format(partition)
 
     dump_statement(client, query)
+
+
+# noinspection PyUnusedLocal
+def cmd_help(client, *args):
+    """
+
+    :param client:
+    :param args:
+    """
+    fprint(HTML(
+        "The following are the cli commands:"
+        "\n\t\\<cmd>help</cmd> - show this message"
+        "\n\t\\<cmd>quit</cmd> - exit from client"
+        "\n\t\\<cmd>version</cmd> - show parstream's version information"
+        "\n\t\\<cmd>format</cmd> - change parstream output format for current session"
+        "\n\t\\<cmd>users</cmd> - show parstream users"
+        "\n\t\\<cmd>process</cmd> - show parstream process information"
+        "\n\t\\<cmd>cluster</cmd> - show parstream cluster nodes information"
+        "\n\t\\<cmd>tables</cmd> <arg>[table]</arg> - print a table's list or column's list if table given"
+        "\n\t\\<cmd>settings</cmd> <arg>[key1 key2]</arg> - prints settings' list of a given keys or all"
+        "\n\t\\<cmd>file</cmd> <arg>filename</arg> - executes statements from given file"
+        "\n\t\\<cmd>partitions</cmd> <arg>table</arg> - show partitions of given table"
+        "\n\t\\<cmd>disc</cmd> <arg>[partition]</arg> - show disk usage or usage of partition LIKE if given"
+    ), style=Style.from_dict({
+        'cmd': '#ff0066',
+        'arg': '#44ff00',
+    }))
 
 
 CLI_COMMANDS = dict(
@@ -166,5 +207,7 @@ CLI_COMMANDS = dict(
     process=cmd_process,
     users=cmd_users,
     partitions=cmd_partitions,
-    disc=cmd_disc_usage
+    disc=cmd_disc_usage,
+    cluster=cmd_cluster,
+    help=cmd_help
 )
