@@ -25,8 +25,11 @@ def dump_statement(client, stm, **kwargs):
     :param client:
     :param stm:
     """
+    kwargs.setdefault('timing', False)
+
     try:
-        utils.dump_output(*utils.safe_execute(client, stm), **kwargs)
+        response = client.safe_execute(stm)
+        client.dump_output(*response, **kwargs)
     except RuntimeError as exc:
         utils.eprint(str(exc))
 
@@ -107,7 +110,7 @@ def cmd_format(client, fmt=None):
         return
 
     try:
-        resp, _ = utils.safe_execute(client, conf.set_format.format(fmt))
+        resp, _ = client.safe_execute(conf.set_format.format(fmt))
         utils.eprint(resp)
     except RuntimeError as exc:
         utils.eprint(str(exc))
@@ -171,6 +174,30 @@ def cmd_disc_usage(client, partition=None):
 
 
 # noinspection PyUnusedLocal
+def cmd_timing(client, *args):
+    """
+
+    :param client:
+    """
+    t = client.timing
+    client.timing = not t
+
+    utils.eprint('timing is: {}'.format('on' if client.timing else 'off'))
+
+
+# noinspection PyUnusedLocal
+def cmd_pretty(client, *args):
+    """
+
+    :param client:
+    """
+    p = client.pretty
+    client.pretty = not p
+
+    utils.eprint('pretty is: {}'.format('on' if client.pretty else 'off'))
+
+
+# noinspection PyUnusedLocal
 def cmd_help(client, *args):
     """
 
@@ -182,12 +209,14 @@ def cmd_help(client, *args):
         "\n\t\\<cmd>help</cmd> - show this message"
         "\n\t\\<cmd>quit</cmd> - exit from client"
         "\n\t\\<cmd>version</cmd> - show parstream's version information"
-        "\n\t\\<cmd>format</cmd> - change parstream output format for current session"
+        "\n\t\\<cmd>timing</cmd> - toggle query timing"
+        "\n\t\\<cmd>pretty</cmd> - toggle pretty output"
         "\n\t\\<cmd>users</cmd> - show parstream users"
         "\n\t\\<cmd>process</cmd> - show parstream process information"
         "\n\t\\<cmd>cluster</cmd> - show parstream cluster nodes information"
         "\n\t\\<cmd>tables</cmd> <arg>[table]</arg> - print a table's list or column's list if table given"
         "\n\t\\<cmd>settings</cmd> <arg>[key1 key2]</arg> - prints settings' list of a given keys or all"
+        "\n\t\\<cmd>format</cmd> <arg>fmt</arg> - change parstream output format for current session"
         "\n\t\\<cmd>file</cmd> <arg>filename</arg> - executes statements from given file"
         "\n\t\\<cmd>partitions</cmd> <arg>table</arg> - show partitions of given table"
         "\n\t\\<cmd>disc</cmd> <arg>[partition]</arg> - show disk usage or usage of partition LIKE if given"
@@ -209,5 +238,7 @@ CLI_COMMANDS = dict(
     partitions=cmd_partitions,
     disc=cmd_disc_usage,
     cluster=cmd_cluster,
+    pretty=cmd_pretty,
+    timing=cmd_timing,
     help=cmd_help
 )

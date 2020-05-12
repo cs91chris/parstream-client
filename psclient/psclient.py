@@ -5,6 +5,7 @@ import sys
 import time
 
 import psclient.config as conf
+import psclient.utils as utils
 
 
 class _BaseClient:
@@ -54,21 +55,21 @@ class _BaseClient:
         :param data:
         :return:
         """
-        d = data.split("\n")
-
         try:
-            if d[0].startswith("#"):
-                encoding = d[1].strip('"')
-            elif d[0].startswith("<") and len(d) > 2:
-                regex = r"<setting><!\[CDATA\[(.*)\]\]></setting>"
-                encoding = re.search(regex, d[2].strip(" ")).group(1)
-            elif d[0].startswith("{"):
-                encoding = d[1].split(":")[1].strip(' "}')
+            if data.startswith("#"):
+                encoding = data.split(';')
+                encoding = encoding[2].strip().strip('"')
+            elif data.startswith("<"):
+                encoding = re.search(conf.xml_encoding_regex, data).group(1)
+            elif data.startswith("{"):
+                encoding = re.search(conf.json_encoding_regex, data).group(1)
             else:
                 raise ValueError
         except (IndexError, TypeError, ValueError) as exc:
-            raise RuntimeError(
-                "{}: cannot determine server encoding: {}".format(conf.error_marker, exc)
+            encoding = 'UTF8'
+            utils.eprint(
+                "{}: cannot determine server encoding: {}\n".format(conf.error_marker, exc),
+                "using default UTF8"
             )
 
         encoding = encoding.upper()
@@ -81,6 +82,16 @@ class _BaseClient:
 
     def _get_encoding(self):
         raise NotImplemented
+
+    @staticmethod
+    def _check_end_response(data):
+        """
+
+        :param data:
+        :return:
+        """
+        part = len(conf.end_response_marker)
+        return len(data) >= part and data[-part:].decode() == conf.end_response_marker
 
     @staticmethod
     def _normalize_statement(stm):
@@ -96,14 +107,18 @@ class _BaseClient:
 
         return stm
 
-    @staticmethod
-    def _check_error(res):
+    def _normalize_output(self, data):
         """
 
-        :param res:
+        :param data:
+        :return:
         """
-        if res.startswith(conf.error_marker):
-            raise RuntimeError(res)
+        try:
+            result = data.decode(self.server_encoding, 'replace')
+        except LookupError:
+            result = data.decode()
+
+        return result[0:-len(conf.end_response_marker)]
 
 
 class PSClient(_BaseClient):
@@ -165,7 +180,8 @@ class PSClient(_BaseClient):
 
         """
         result, _ = self.execute(self._get_login_cmd())
-        self._check_error(result)
+        if 'ERROR' in result:
+            raise RuntimeError(result)
 
     def _get_encoding(self):
         """
@@ -203,13 +219,10 @@ class PSClient(_BaseClient):
                 first_package = False
                 recv_buffer = self.recv_buffer
 
-            if len(buf) >= 2 and buf[-2:].decode() == '\n\n':
+            if self._check_end_response(buf):
                 break
 
-        result = buf.decode(self.server_encoding, 'replace')
-        result = result[0:-2]  # remove \n\n
-
-        return result, dict(time_info=dict(
+        return self._normalize_output(buf), dict(time_info=dict(
             start=start_time,
             end_exec=end_time,
             end_out=time.time()
@@ -259,7 +272,8 @@ class AIOPSClient(_BaseClient):
 
         """
         result, _ = await self.execute(self._get_login_cmd())
-        self._check_error(result)
+        if 'ERROR' in result:
+            raise RuntimeError(result)
 
     async def _get_encoding(self):
         """
@@ -296,14 +310,91 @@ class AIOPSClient(_BaseClient):
                 first_package = False
                 recv_buffer = self.recv_buffer
 
-            if len(buf) >= 2 and buf[-2:].decode() == '\n\n':
+            if self._check_end_response(buf):
                 break
 
-        result = buf.decode(self.server_encoding, 'replace')
-        result = result[0:-2]  # remove \n\n
-
-        return result, dict(time_info=dict(
+        return self._normalize_output(buf), dict(time_info=dict(
             start=start_time,
             end_exec=end_time,
             end_out=time.time()
         ))
+
+
+class CLIClient(PSClient):
+    def __init__(self, host='localhost', port=9042, username=None, password=None,
+                 timeout=5, recv_buffer=4096, max_reconnect=5, timing=True, pretty=True):
+        """
+
+        :param host:
+        :param port:
+        :param username:
+        :param password:
+        :param timeout:
+        :param recv_buffer:
+        :param max_reconnect:
+        :param timing:
+        :param pretty:
+        """
+        super().__init__(host, port, username, password, timeout, recv_buffer, max_reconnect)
+        self.pretty = pretty
+        self.timing = timing
+
+    def get_format(self):
+        """
+
+        :return:
+        """
+        output, _ = self.safe_execute(conf.format_query)
+
+        if 'JSON' in output:
+            return 'JSON'
+        if 'XML' in output:
+            return 'XML'
+        if 'ASCII' in output:
+            return 'ASCII'
+        return 'UNKNOWN'
+
+    def safe_execute(self, query):
+        """
+
+        :param query:
+        :return:
+        """
+        try:
+            return self.execute(query)
+        except socket.error as exc:
+            utils.eprint(str(exc))
+            utils.eprint("reconnecting...")
+
+            try:
+                self.connect()
+                utils.eprint("successfully connected")
+            except ConnectionError as exc:
+                utils.eprint(str(exc))
+                sys.exit(1)
+
+            return None, None
+
+    def dump_output(self, result, time_info=None, timing=None):
+        """
+
+        :param result:
+        :param time_info:
+        :param timing:
+        """
+        if not result:
+            return
+
+        if sys.stdout.isatty() and self.pretty is True:
+            utils.pretty_print(result, arg=self.get_format())
+        else:
+            print(result)
+
+        if self.timing and timing is not False:
+            t = time_info['time_info']
+            exec_sec = round(t['end_exec'] - t['start'], 4)
+            total_sec = round(t['end_out'] - t['start'], 4)
+
+            utils.eprint()
+            utils.eprint("execution: {} sec".format(exec_sec))
+            utils.eprint("total:     {} sec".format(total_sec))

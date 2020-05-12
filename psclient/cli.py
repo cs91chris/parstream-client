@@ -13,7 +13,7 @@ from pygments.styles import get_style_by_name
 
 import psclient.config as conf
 import psclient.utils as utils
-from psclient import PSClient
+from psclient import CLIClient
 from psclient.commands import command_factory
 
 
@@ -91,8 +91,7 @@ def cli_loop(client, prompt=None):
                         print()
 
                     try:
-                        resp = utils.safe_execute(client, statement)
-                        utils.dump_output(*resp, timing=True)
+                        client.dump_output(*client.safe_execute(statement))
                     except RuntimeError as exc:
                         utils.eprint(str(exc))
 
@@ -113,9 +112,11 @@ def cli():
         params['username'] = args.user
         params['password'] = None
         params['timeout'] = args.timeout
+        params['timing'] = args.no_timing
+        params['pretty'] = args.no_pretty
 
         cli_loop(
-            PSClient(**params),
+            CLIClient(**params),
             prompt=[(
                 "class:prompt", conf.ps1.format(
                     user=params['username'] + "@" if params['username'] else "",

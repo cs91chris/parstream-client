@@ -1,18 +1,26 @@
+import re
 from enum import Enum
 
 error_marker = '#ERROR'
+end_response_marker = '\n\n'
+
+json_encoding_regex = re.compile(r"\"value\": \"(.*)\"")
+xml_encoding_regex = re.compile(r"<value><!\[CDATA\[(.*)\]\]></value>")
 
 history_file = '.psclient_history'
 
 lexer_style_class = 'vim'
 
 set_format = "SET outputformat = {}"
+
 query_user_list = "SELECT * FROM ps_info_user;"
 query_process_info = "SELECT pid, realtime_sec, total_ram_mb FROM ps_info_process;"
 query_version = "SELECT parstream_version, build_datetime, source_revision FROM ps_info_version;"
 query_configuration_list = "SELECT * FROM ps_info_configuration;"
 query_configuration_info = "SELECT * FROM ps_info_configuration WHERE KEY in ({});"
-encoding_query = "SELECT VALUE FROM ps_info_configuration WHERE KEY = 'encoding';"
+
+encoding_query = query_configuration_info.format("'encoding'")
+format_query = query_configuration_info.format("'outputFormat'")
 
 query_tables_list = "SELECT table_name" \
                     ",import_directory_pattern" \
@@ -86,13 +94,13 @@ sql_completer = [
 ]
 
 cli_completer = [
-    '\\tables', '\\help', '\\version', '\\settings',
+    '\\tables', '\\help', '\\version', '\\settings', '\\timing', '\\pretty',
     '\\file', '\\quit', '\\format', '\\process',
-    '\\users', '\\partitions', '\\disc', '\\cluster'
+    '\\users', '\\partitions', '\\disc', '\\cluster',
 
-    'tables', 'help', 'version', 'settings',
+    'tables', 'help', 'version', 'settings', 'timing', 'pretty',
     'file', 'quit', 'format', 'process',
-    'users', 'partitions', 'disc', 'cluster'
+    'users', 'partitions', 'disc', 'cluster',
 ]
 
 prompt_style = {

@@ -1,11 +1,42 @@
 import argparse
-import socket
+import json
 import sys
 
+import pygments
+from prompt_toolkit import print_formatted_text
+from prompt_toolkit.formatted_text import PygmentsTokens
+from pygments.lexers.data import JsonLexer
+from pygments.lexers.html import HtmlLexer
 from tabulate import tabulate
 
 import psclient.config as conf
 from psclient.version import *
+
+
+def pretty_print(data, arg=None):
+    """
+
+    :param data:
+    :param arg:
+    """
+    lexer = None
+
+    if arg == 'JSON':
+        data = json.dumps(json.loads(data), indent=2)
+        lexer = JsonLexer()
+    elif arg == 'XML':
+        lexer = HtmlLexer()
+    elif arg == 'ASCII':
+        if not data.startswith(conf.error_marker):
+            rows = data[1:].split("\n")
+            rows = [r.replace('"', '').split(";") for r in rows]
+            data = tabulate(rows, **conf.tabulate_opts)
+
+    if lexer:
+        tokens = list(pygments.lex(data, lexer=lexer))
+        print_formatted_text(PygmentsTokens(tokens))
+    else:
+        print(data)
 
 
 def parse_options():
@@ -20,6 +51,8 @@ def parse_options():
     parser.add_argument("-u", "--user", help="username")
     parser.add_argument("-t", "--timeout", type=int, help="connection timeout in sec")
     parser.add_argument("-v", "--version", action='store_true', help="show client version info")
+    parser.add_argument("--no-timing", action='store_false', help="disable query timing")
+    parser.add_argument("--no-pretty", action='store_false', help="disable pretty output")
 
     return parser.parse_args()
 
@@ -47,57 +80,4 @@ def print_welcome():
 
     """
     eprint("Unofficial Cisco Parstream cli")
-    eprint("Type \\ for a list of cli commands\n")
-
-
-def dump_output(result, time_info=None, timing=False):
-    """
-
-    :param result:
-    :param time_info:
-    :param timing:
-    """
-    if not result:
-        return
-    if result.startswith(conf.error_marker):
-        print(result)
-        return
-
-    if sys.stdout.isatty() and result[0] == '#':
-        rows = result[1:].split("\n")
-        rows = [r.replace('"', '').split(";") for r in rows]
-        print(tabulate(rows, **conf.tabulate_opts))
-    else:
-        print(result)
-
-    if timing:
-        t = time_info['time_info']
-        exec_sec = round(t['end_exec'] - t['start'], 4)
-        total_sec = round(t['end_out'] - t['start'], 4)
-
-        print()
-        print("execution: {} sec".format(exec_sec))
-        print("total:     {} sec".format(total_sec))
-
-
-def safe_execute(client, query):
-    """
-
-    :param client:
-    :param query:
-    :return:
-    """
-    try:
-        return client.execute(query)
-    except socket.error as exc:
-        eprint(str(exc))
-        eprint("reconnecting...")
-
-        try:
-            client.connect()
-            eprint("successfully connected")
-        except ConnectionError as exc:
-            eprint(str(exc))
-            sys.exit(1)
-
-        return None, None
+    eprint("Type \\help for a list of cli commands\n")
