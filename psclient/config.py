@@ -5,7 +5,7 @@ error_marker = '#ERROR'
 end_response_marker = '\n\n'
 
 json_encoding_regex = re.compile(r"\"value\": \"(.*)\"")
-xml_encoding_regex = re.compile(r"<value><!\[CDATA\[(.*)\]\]></value>")
+xml_encoding_regex = re.compile(r"<value><!\[CDATA\[(.*)]]></value>")
 
 history_file = '.psclient_history'
 
@@ -42,15 +42,15 @@ query_disc_usage_total = "SELECT count(file_name) as files" \
                          " ORDER BY MB;"
 
 query_disc_usage_partitions = "SELECT path" \
-                        ",type" \
-                        ",status" \
-                        ",sum(size_byte) / 1024 AS KB" \
-                        ",sum(size_byte) / 1048576 AS MB" \
-                        ",sum(size_byte) / 1073741824 AS GB" \
-                        " FROM ps_info_disc" \
-                        " WHERE path LIKE '%{}%'" \
-                        " GROUP BY path, type, status" \
-                        " ORDER BY KB;"
+                              ",type" \
+                              ",status" \
+                              ",sum(size_byte) / 1024 AS KB" \
+                              ",sum(size_byte) / 1048576 AS MB" \
+                              ",sum(size_byte) / 1073741824 AS GB" \
+                              " FROM ps_info_disc" \
+                              " WHERE path LIKE '%{}%'" \
+                              " GROUP BY path, type, status" \
+                              " ORDER BY KB;"
 
 query_partitions_info = "SELECT relative_path AS directory" \
                         ",partition_condition" \
@@ -61,15 +61,15 @@ query_partitions_info = "SELECT relative_path AS directory" \
                         " ORDER BY relative_path;"
 
 query_table_info = "SELECT column_name" \
-                    ",sql_type" \
-                    ",singularity" \
-                    ",has_unique_constraint AS is_unique" \
-                    ",has_not_null_constraint AS not_null" \
-                    ",is_primary_key" \
-                    ",default_value" \
-                    " FROM ps_info_column AS c" \
-                    " JOIN ps_info_type AS t ON c.value_type_oid = t.oid" \
-                    " WHERE table_name = '{}'" \
+                   ",sql_type" \
+                   ",singularity" \
+                   ",has_unique_constraint AS is_unique" \
+                   ",has_not_null_constraint AS not_null" \
+                   ",is_primary_key" \
+                   ",default_value" \
+                   " FROM ps_info_column AS c" \
+                   " JOIN ps_info_type AS t ON c.value_type_oid = t.oid" \
+                   " WHERE table_name = '{}'" \
                    " ORDER BY column_name;"
 
 sql_completer = [
@@ -111,8 +111,9 @@ ps1 = "[{user}{host}:{port}] parstream => "
 ps2 = " ... -> "
 
 tabulate_opts = {
-    'headers': 'firstrow',
-    'tablefmt': 'presto'
+    'headers':          'firstrow',
+    'tablefmt':         'presto',
+    'disable_numparse': True,
 }
 
 

@@ -1,6 +1,7 @@
 import os
 import sys
 
+import click
 from prompt_toolkit import PromptSession, prompt as tkprompt
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import WordCompleter
@@ -61,7 +62,7 @@ def cli_loop(client, prompt=None):
             history=FileHistory(os.path.join(hist_file, conf.history_file)),
             style=style_from_pygments_cls(get_style_by_name(conf.lexer_style_class)),
             completer=WordCompleter(conf.sql_completer + conf.cli_completer),
-            lexer=PygmentsLexer(PlPgsqlLexer),
+            lexer=PygmentsLexer(PlPgsqlLexer)
         )
     else:
         session = None
@@ -98,32 +99,49 @@ def cli_loop(client, prompt=None):
                     statement = ""
 
 
-def cli():
-    try:
-        params = dict()
-        args = utils.parse_options()
+@click.command()
+@click.option("-H", "--host", default='localhost', help="parstream host")
+@click.option("-p", "--port", default=9011, type=int, help="parstream port")
+@click.option("-P", "--password", default=None, type=int, help="password")
+@click.option("-u", "--username", default=None, help="username")
+@click.option("-t", "--timeout", default=None, type=int, help="connection timeout in sec")
+@click.option("-v", "--version", is_flag=True, flag_value=True, default=False, help="show client version info")
+@click.option("--no-timing", is_flag=True, flag_value=True, default=False, help="disable query timing")
+@click.option("--no-pretty", is_flag=True, flag_value=True, default=False, help="disable pretty output")
+def cli(host, port, username, password, timeout, version, no_timing, no_pretty):
+    """
 
-        if args.version:
+    :param host:
+    :param port:
+    :param username:
+    :param password:
+    :param timeout:
+    :param version:
+    :param no_timing:
+    :param no_pretty:
+    """
+    try:
+        if version:
             utils.dump_version_info()
             sys.exit(conf.ExitCodes.success.value)
 
-        params['host'] = args.host
-        params['port'] = args.port
-        params['username'] = args.user
-        params['password'] = None
-        params['timeout'] = args.timeout
-        params['timing'] = args.no_timing
-        params['pretty'] = args.no_pretty
+        client = CLIClient(
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            timeout=timeout,
+            timing=not no_timing,
+            pretty=not no_pretty
+        )
 
         cli_loop(
-            CLIClient(**params),
-            prompt=[(
-                "class:prompt", conf.ps1.format(
-                    user=params['username'] + "@" if params['username'] else "",
-                    host=params['host'],
-                    port=params['port']
-                )
-            )]
+            client,
+            prompt=[("class:prompt", conf.ps1.format(
+                user=username + "@" if username else "",
+                host=host,
+                port=port
+            ))]
         )
     except KeyboardInterrupt:
         print('exited by ctrl+C')

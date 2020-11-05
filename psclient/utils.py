@@ -1,7 +1,7 @@
-import argparse
 import json
 import sys
 
+import click
 import pygments
 from prompt_toolkit import print_formatted_text
 from prompt_toolkit.formatted_text import PygmentsTokens
@@ -29,32 +29,17 @@ def pretty_print(data, arg=None):
     elif arg == 'ASCII':
         if not data.startswith(conf.error_marker):
             rows = data[1:].split("\n")
-            rows = [r.replace('"', '').split(";") for r in rows]
+            rows = [r.replace('"', '').split(";") for r in rows if r]
             data = tabulate(rows, **conf.tabulate_opts)
+            return click.echo_via_pager(data)
+        else:
+            return eprint(data)
 
     if lexer:
         tokens = list(pygments.lex(data, lexer=lexer))
         print_formatted_text(PygmentsTokens(tokens))
     else:
         print(data)
-
-
-def parse_options():
-    """
-
-    :return:
-    """
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument("-H", "--host", default='localhost', help="parstream host")
-    parser.add_argument("-p", "--port", default=9011, type=int, help="parstream port")
-    parser.add_argument("-u", "--user", help="username")
-    parser.add_argument("-t", "--timeout", type=int, help="connection timeout in sec")
-    parser.add_argument("-v", "--version", action='store_true', help="show client version info")
-    parser.add_argument("--no-timing", action='store_false', help="disable query timing")
-    parser.add_argument("--no-pretty", action='store_false', help="disable pretty output")
-
-    return parser.parse_args()
 
 
 def dump_version_info():
@@ -67,12 +52,17 @@ def dump_version_info():
     print("url:", __url__)
 
 
-def eprint(*args):
+def eprint(message=None, colored=True):
     """
 
-    :param args:
+    :param message:
+    :param colored:
     """
-    print(*args, file=sys.stderr)
+    colored = colored and sys.stdin.isatty()
+    if colored:
+        click.secho(message, err=True, fg="red")
+    else:
+        print(message, file=sys.stderr)
 
 
 def print_welcome():
