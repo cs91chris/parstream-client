@@ -81,6 +81,8 @@ setup(
         'tabulate >= 0.8',
         'pygments >= 2.6',
         'prompt_toolkit >= 3.0',
+        'click >= 7.1.2',
+        'colorama >= 0.4.4',
     ],
     tests_require=[
         'pytest',
